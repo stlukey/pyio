@@ -1,4 +1,4 @@
 pyio
 ====
 
-Some useful tools to enhance CLI based programs.
+Some simple tools that can enhance the input and output of text based programs.
