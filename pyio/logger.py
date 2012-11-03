@@ -38,6 +38,7 @@ Shell based logging
 
 from os import system, getpgrp
 from sys import stdout, stderr, argv
+from optparse import OptionParser
 
 __author__ = "Luke Southam <luke@devthe.com>"
 __copyright__ = "Copyright 2012, DEVTHE.COM LIMITED"
@@ -45,7 +46,7 @@ __license__ = "The BSD 3-Clause License"
 __status__ = "Development"
 
 # the message structure
-MESSAGE = """{color}[{cmd};{pid}]: ({type_}) - '{msg}'{color_end}\n"""
+MESSAGE = """{color}[{cmd};{pid}]: ({type_}) - '{msg}'{color_end}"""
 
 # Color codes
 purple = '\033[95m'
@@ -54,12 +55,12 @@ green = '\033[92m'
 orange = '\033[93m'
 red = '\033[91m'
 
+
+
+#Colored message; to add a bit of (consistent) style to messages.
 colors = {
-    """
-    Colored message; to add a bit of (consistent) style to messages.
-    """
     'DEBUG': blue,
-    'LOG': green,
+    'MESSAGE': green,
     'WARNING': orange,
     'ERROR': red,
     'UNKNOWN': purple,
@@ -87,8 +88,8 @@ class Log(object):
         logger("DEBUG", msg)
         return self
 
-    def log(self, msg):
-        logger("LOG", msg)
+    def message(self, msg):
+        logger("MESSAGE", msg)
         return self
 
     def error(self, msg):
@@ -108,7 +109,7 @@ def log(cmd, pid, debug, type_, msg, out=(True, stdout)):
     type_ = type_ if type_ in colors else "UNKNOWN"
     if type_ == "DEBUG" and not debug:
         return
-    elif type_ == "ERROR" and out[1] is True:
+    elif type_ == "ERROR" and out[0] is True:
         out = stderr
     elif type_ == "ERROR":
         out = out[1]
@@ -130,8 +131,51 @@ def getLog(debug, out=stdout, errors=True):
     out = (errors, out)
     return lambda type_, msg: log(debug, type_, msg, out)
 
+def tobool(i):
+    print i, i.lower().strip() in ['true', 't', 'y', 'yes']
+    return i.lower().strip() in ['true', 't', 'y', 'yes']
+
+
 def main():
-    log(argv[1], argv[2], argv[3], argv[4])
+    """
+    allows logger in bash scripts
+
+    logger="python logger.py" #set to logger.py file
+    log="$logger --cmd $0 --pid $$ --debug"
+    $log --type debug "Hello there"
+
+    ##also##
+
+    log(){ $log $@ --out /dev/null; }
+    log --type error "Now you see me"
+    log --type warning "Now you don't"
+    """
+    parser = OptionParser(usage="%prog [options] --cmd [cmd] --pid [pid] --type [type] [message]")
+    parser.add_option("-d", "--debug",
+                  action="store_true", dest="debug", default=False,
+                  help="print debug messages to stdout")
+    parser.add_option("-o", "--out", action="store", type="string", dest="out", default=None,
+                  help="print messages to other file() not stdout")
+    parser.add_option("--no-errors",
+                  action="store_true", dest="no_errors", default=False,
+                  help="redirect even errors to --out")
+    parser.add_option("-t", "--type", type="string",
+                  action="store", dest="type",
+                  help="The type")
+    parser.add_option("--pid", type="string",
+                  action="store", dest="pid",
+                  help="The pid")
+    parser.add_option("--cmd", type="string",
+                  action="store", dest="cmd",
+                  help="The command")
+    (options, args) = parser.parse_args()
+    log_args = [options.cmd, options.pid, options.debug, options.type, " ".join(args)]
+    if options.out:
+        out = file(options.out, "w")
+        errors = not options.no_errors
+        outs = (errors, out)
+        log_args.append(outs)
+    log(*log_args)
 
 
 if __name__ == '__main__':
